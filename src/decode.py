@@ -3,20 +3,18 @@ from typing import BinaryIO
 
 def vlq(buffer: BinaryIO) -> int:
     """Decode a variable-length quantity from a buffer."""
-
-    def _to_bitstring(byte: bytes) -> str:
-        bits = bin(ord(byte))[2:]
-        if len(bits) < 8:
-            bits = '0' * (8 - len(bits)) + bits
-        return bits
-
-    result = ''
+    tmp_arr = []
+    result = 0
     while True:
-        i = _to_bitstring(buffer.read(1))
-        result += i[1:]
-        if i[0] == '0':
+        i = ord(buffer.read(1))
+        tmp_arr.append(i & 0x7f)
+        if not (i & 0x80):
             break
-    return int(result, 2)
+    for shift, item in enumerate(tmp_arr[::-1]):
+        tmp_arr[shift] = item << shift * 7
+    for item in tmp_arr:
+        result |= item
+    return result
 
 
 def unreal_signed_vlq(buffer: BinaryIO) -> int:
