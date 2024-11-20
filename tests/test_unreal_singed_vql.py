@@ -55,7 +55,7 @@ PARAMS = [
 
 @pytest.mark.parametrize("expected,integer", PARAMS)
 def test_encode_unreal_signed_vlq(expected, integer):
-    assert UnrealEngineSingedVLQ.encode(integer) == bytearray(expected)
+    assert UnrealEngineSingedVLQ.encode(integer) == expected
 
 
 @pytest.mark.parametrize("byte, expected", PARAMS)

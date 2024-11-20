@@ -1,5 +1,7 @@
 from typing_extensions import BinaryIO
 
+from src.utils import to_bytes
+
 
 class Base:
     @staticmethod
@@ -10,6 +12,7 @@ class Base:
     def decode(buffer) -> int:
         raise NotImplementedError
 
+
 class GroupVarintEncoding(Base):
     """
     Group Varint Encoding (GVE).
@@ -19,6 +22,7 @@ class GroupVarintEncoding(Base):
     def decode(buffer: BinaryIO) -> int:
         """Group Varint Encoding"""
         pass
+
 
 class UnsignedLEB128(Base):
     """
@@ -38,6 +42,7 @@ class UnsignedLEB128(Base):
                 break
 
         return result
+
 
 class SignedLEB128(Base):
     """
@@ -61,6 +66,7 @@ class SignedLEB128(Base):
     #         result |= - (1 << shift)
     #
     #     return result
+
 
 class VariableLengthQuantity(Base):
     """
@@ -92,6 +98,34 @@ class SQLite4VLI(Base):
     """
 
     @staticmethod
+    def encode(value) -> bytes:
+        """Encode a SQLite4 variable-length integer."""
+
+        def _add_bytes(value: int, num_bytes: int) -> bytes:
+            b = b''
+            for i in range((num_bytes) * 8 - 8, -8, -8):
+                b += to_bytes((value >> i) & 0xFF)
+            return b
+
+        if value <= 240:
+            return to_bytes(value)
+        if value <= 2287:
+            return to_bytes(241 + (value - 240) // 256) + to_bytes((value - 240) % 256)
+        if value <= 67823:
+            return to_bytes(249) + to_bytes((value - 2288) // 256) + to_bytes((value - 2288) % 256)
+        if value <= 16777215:
+            return to_bytes(250) + _add_bytes(value, num_bytes=3)
+        if value <= 4294967295:
+            return to_bytes(251) + _add_bytes(value, num_bytes=4)
+        if value <= 1099511627775:
+            return to_bytes(252) + _add_bytes(value, num_bytes=5)
+        if value <= 281474976710655:
+            return to_bytes(253) + _add_bytes(value, num_bytes=6)
+        if value <= 72057594037927935:
+            return to_bytes(254) + _add_bytes(value, num_bytes=7)
+        return to_bytes(255) + _add_bytes(value, num_bytes=8)
+
+    @staticmethod
     def decode(buffer: BinaryIO) -> int:
         """Decode a SQLite4 variable-length integer from a buffer."""
         value = ord(buffer.read(1))
@@ -114,34 +148,6 @@ class SQLite4VLI(Base):
         if value == 255:
             return int.from_bytes(buffer.read(8), 'big')
 
-    @staticmethod
-    def encode(value) -> bytes:
-        """Encode a SQLite4 variable-length integer."""
-
-        def _add_bytes(value: int, num_bytes: int) -> list[int]:
-            arr = []
-            for i in range((num_bytes) * 8 - 8, -8, -8):
-                arr.append((value >> i) & 0xFF)
-            return arr
-
-        if value <= 240:
-            return bytearray([value])
-        if value <= 2287:
-            return bytearray([241 + (value - 240) // 256, (value - 240) % 256])
-        if value <= 67823:
-            return bytearray([249, (value - 2288) // 256, (value - 2288) % 256])
-        if value <= 16777215:
-            return bytearray([250] + _add_bytes(value, num_bytes=3))
-        if value <= 4294967295:
-            return bytearray([251] + _add_bytes(value, num_bytes=4))
-        if value <= 1099511627775:
-            return bytearray([252] + _add_bytes(value, num_bytes=5))
-        if value <= 281474976710655:
-            return bytearray([253] + _add_bytes(value, num_bytes=6))
-        if value <= 72057594037927935:
-            return bytearray([254] + _add_bytes(value, num_bytes=7))
-        return bytearray([255] + _add_bytes(value, num_bytes=8))
-
 
 class UnrealEngineSingedVLQ(Base):
     """
@@ -149,32 +155,32 @@ class UnrealEngineSingedVLQ(Base):
     """
 
     @staticmethod
-    def encode(value: int) -> bytearray:
+    def encode(value: int) -> bytes:
         """Encode an Unreal Engine signed variable-length quantity."""
-        arr = bytearray()
+        b = b''
         abs_value = abs(value)
         b0 = ((0 if value >= 0 else 0x80) +
               (abs_value if abs_value < 0x40 else ((abs_value & 0x3F) + 0x40)))
-        arr.append(b0)
+        b += to_bytes(b0)
 
         if b0 & 0x40:
             abs_value >>= 6
             b1 = (abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80))
-            arr.append(b1)
+            b += to_bytes(b1)
             if b1 & 0x80:
                 abs_value >>= 7
                 b2 = (abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80))
-                arr.append(b2)
+                b += to_bytes(b2)
                 if b2 & 0x80:
                     abs_value >>= 7
                     b3 = (abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80))
-                    arr.append(b3)
+                    b += to_bytes(b3)
                     if b3 & 0x80:
                         abs_value >>= 7
                         b4 = abs_value
-                        arr.append(b4)
+                        b += to_bytes(b4)
 
-        return arr
+        return b
 
     @staticmethod
     def decode(buffer: BinaryIO) -> int:
