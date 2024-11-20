@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src import decode
+from src.VarInt import VariableLengthQuantity
 
 PARAMS = [
     [b'\x00', 0],
@@ -26,4 +26,4 @@ PARAMS = [
 @pytest.mark.parametrize("byte,expected", PARAMS)
 def test_decode_vlq(byte, expected):
     buffer = BytesIO(byte)
-    assert decode.vlq(buffer) == expected
+    assert VariableLengthQuantity.decode(buffer) == expected

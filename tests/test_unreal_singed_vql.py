@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src import decode, encode
+from src.VarInt import UnrealEngineSingedVLQ
 
 PARAMS = [
     [b'\xff\xff\xff\xff\xff', -34359738367],
@@ -55,10 +55,10 @@ PARAMS = [
 
 @pytest.mark.parametrize("expected,integer", PARAMS)
 def test_encode_unreal_signed_vlq(expected, integer):
-    assert encode.unreal_signed_vlq(integer) == bytearray(expected)
+    assert UnrealEngineSingedVLQ.encode(integer) == bytearray(expected)
 
 
 @pytest.mark.parametrize("byte, expected", PARAMS)
 def test_decode_unreal_signed_vlq(byte, expected):
     buffer = BytesIO(byte)
-    assert decode.unreal_signed_vlq(buffer) == expected
+    assert UnrealEngineSingedVLQ.decode(buffer) == expected

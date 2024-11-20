@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src import decode, encode
+from src.VarInt import SQLite4VLI
 
 PARAMS = [
     [b'\x00', 0],
@@ -36,10 +36,10 @@ PARAMS = [
 
 @pytest.mark.parametrize("expected,integer", PARAMS)
 def test_encode_sql_lite4_vli(expected, integer):
-    assert encode.sql_lite4_vli(integer) == bytearray(expected)
+    assert SQLite4VLI.encode(integer) == bytearray(expected)
 
 
 @pytest.mark.parametrize("byte, expected", PARAMS)
 def test_decode_sql_lite4_vli(byte, expected):
     buffer = BytesIO(byte)
-    assert decode.sql_lite4_vli(buffer) == expected
+    assert SQLite4VLI.decode(buffer) == expected

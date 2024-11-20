@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src import decode
+from src.VarInt import UnsignedLEB128
 
 PARAMS = [
     [b'\x00', 0],
@@ -18,4 +18,4 @@ PARAMS = [
 @pytest.mark.parametrize("byte,expected", PARAMS)
 def test_decode_uleb128(byte, expected):
     buffer = BytesIO(byte)
-    assert decode.uleb128(buffer) == expected
+    assert UnsignedLEB128.decode(buffer) == expected
