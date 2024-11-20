@@ -35,11 +35,11 @@ PARAMS = [
 
 
 @pytest.mark.parametrize("expected,integer", PARAMS)
-def test_encode_sql_lite4_vli(expected, integer):
+def test_encode_sqlite4_vli(expected, integer):
     assert SQLite4VLI.encode(integer) == bytearray(expected)
 
 
 @pytest.mark.parametrize("byte, expected", PARAMS)
-def test_decode_sql_lite4_vli(byte, expected):
+def test_decode_sqlite4_vli(byte, expected):
     buffer = BytesIO(byte)
     assert SQLite4VLI.decode(buffer) == expected
