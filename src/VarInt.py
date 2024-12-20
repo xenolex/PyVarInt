@@ -24,6 +24,12 @@ class GroupVarintEncoding(Base):
         pass
 
 
+class PrefixVarint(Base):
+    """
+    Prefix Varint
+    """
+
+
 class UnsignedLEB128(Base):
     """
     Unsigned Little Endian Base 128 (LEB128)
@@ -71,10 +77,24 @@ class SignedLEB128(Base):
 class VariableLengthQuantity(Base):
     """
     Variable-Length Quantity (VLQ)
+
+    https://en.wikipedia.org/wiki/Variable-length_quantity
     """
 
     @staticmethod
-    def decode(buffer: BinaryIO) -> bytes:
+    def encode(value) -> bytes:
+        """Encode a variable-length quantity."""
+        tmp_arr = []
+        buffer = value & 0x7f
+        tmp_arr.append(buffer)
+        while (value := value >> 7):
+            buffer = (value & 0x7f) | 0x80
+            tmp_arr.append(buffer)
+
+        return b''.join(to_bytes(i) for i in tmp_arr[::-1])
+
+    @staticmethod
+    def decode(buffer: BinaryIO) -> int:
         """Decode a variable-length quantity from a buffer."""
         tmp_arr = []
         result = 0
@@ -152,6 +172,9 @@ class SQLite4VLI(Base):
 class UnrealEngineSingedVLQ(Base):
     """
     Unreal Engine signed variable-length quantity.
+
+    https://web.archive.org/web/20100820185656/http://unreal.epicgames.com/Packages.htm#:~:
+    text=a%20package%20file.-,Compact%20Indices.,-Compact%20indices%20exist
     """
 
     @staticmethod
