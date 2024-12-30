@@ -4,8 +4,7 @@ __pycache__/
 *$py.class
 
 # any dot stared
-.venv
-.fleet
+.*
 
 # C extensions
 *.so
