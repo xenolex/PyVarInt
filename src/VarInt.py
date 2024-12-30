@@ -1,4 +1,4 @@
-from typing_extensions import BinaryIO
+from typing import MutableSequence, BinaryIO
 
 from src.utils import to_bytes
 
@@ -34,12 +34,32 @@ class UnsignedLEB128(Base):
     """
     Unsigned Little Endian Base 128 (LEB128)
     """
+    @staticmethod
+    def encode(value) -> bytes:
+        """Encode a Unsigned Little Endian Base 128 (LEB128) from a buffer."""
+        result = bytearray()
+        while True:
+            # Extract the lowest 7 bits
+            byte = value & 0x7F
+            # Right shift the value by 7 bits
+            value >>= 7
+            # If there's more data to encode, set the high bit
+            if value != 0:
+                byte |= 0x80
+
+            result.append(byte)
+
+            if value == 0:
+                break
+
+        return bytes(result)
 
     @staticmethod
     def decode(buffer: BinaryIO) -> int:
         """Decode a Unsigned Little Endian Base 128 (LEB128) from a buffer."""
         shift = 0
         result = 0
+        
         while True:
             i = ord(buffer.read(1))
             result |= (i & 0x7f) << shift
@@ -53,25 +73,44 @@ class UnsignedLEB128(Base):
 class SignedLEB128(Base):
     """
     Signed Little Endian Base 128 (LEB128)
+    https://en.wikipedia.org/wiki/LEB128
     """
-    pass
+    @staticmethod
+    def encode(value:int) -> bytes:
+        """Encode a signed integer using LEB128 encoding."""
+        result = bytearray()
+        while True:
+            byte = value & 0x7f
+            value >>= 7
+            # Sign extension
+            if value == 0 and byte & 0x40 == 0:
+                result.append(byte)
+                break
+            elif value == -1 and byte & 0x40 != 0:
+                result.append(byte)
+                break
+            else:
+                result.append(byte | 0x80)
+        return bytes(result)
 
-    # @staticmethod
-    # def decode(buffer: BinaryIO) -> int:
-    #     """Decode a Signed Little Endian Base 128 (LEB128) from a buffer."""
-    #     shift = 0
-    #     result = 0
-    #     while True:
-    #         i = ord(buffer.read(1))
-    #         result |= (i & 0x7f) << shift
-    #         shift += 7
-    #         if not (i & 0x80):
-    #             break
-    #
-    #     if (i & 0x40) and (shift < 8 * 4):
-    #         result |= - (1 << shift)
-    #
-    #     return result
+
+    @staticmethod
+    def decode(buffer: BinaryIO) -> int:
+        """Decode a Signed Little Endian Base 128 (LEB128) from a buffer."""
+        result = 0
+        shift = 0
+
+        while True:
+            item = ord(buffer.read(1))
+            result |= (item & 0x7F) << shift
+            # Check if this is the last byte
+            if not (item & 0x80):
+                # Sign extend if necessary
+                if shift < 64 and (item & 0x40):
+                    result |= ~0 << (shift + 7)
+                break
+            shift += 7
+        return result
 
 
 class VariableLengthQuantity(Base):
@@ -87,7 +126,7 @@ class VariableLengthQuantity(Base):
         tmp_arr = []
         buffer = value & 0x7f
         tmp_arr.append(buffer)
-        while (value := value >> 7):
+        while value := value >> 7:
             buffer = (value & 0x7f) | 0x80
             tmp_arr.append(buffer)
 
@@ -96,7 +135,7 @@ class VariableLengthQuantity(Base):
     @staticmethod
     def decode(buffer: BinaryIO) -> int:
         """Decode a variable-length quantity from a buffer."""
-        tmp_arr = []
+        tmp_arr: MutableSequence = []
         result = 0
         while True:
             i = ord(buffer.read(1))
@@ -121,10 +160,10 @@ class SQLite4VLI(Base):
     def encode(value) -> bytes:
         """Encode a SQLite4 variable-length integer."""
 
-        def _add_bytes(value: int, num_bytes: int) -> bytes:
+        def _add_bytes(number: int, num_bytes: int) -> bytes:
             b = b''
-            for i in range((num_bytes) * 8 - 8, -8, -8):
-                b += to_bytes((value >> i) & 0xFF)
+            for i in range(num_bytes * 8 - 8, -8, -8):
+                b += to_bytes((number >> i) & 0xFF)
             return b
 
         if value <= 240:
@@ -165,8 +204,7 @@ class SQLite4VLI(Base):
             return int.from_bytes(buffer.read(6), 'big')
         if value == 254:
             return int.from_bytes(buffer.read(7), 'big')
-        if value == 255:
-            return int.from_bytes(buffer.read(8), 'big')
+        return int.from_bytes(buffer.read(8), 'big')
 
 
 class UnrealEngineSingedVLQ(Base):
