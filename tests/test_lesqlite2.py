@@ -21,11 +21,11 @@ PARAMS = [
 
 
 @pytest.mark.parametrize("expected,integer", PARAMS)
-def test_encode_lesqlite(expected, integer):
+def test_encode_lesqlite2(expected, integer):
     assert LeSQLite2.encode(integer) == expected
 
 
 @pytest.mark.parametrize("byte, expected", PARAMS)
-def test_decode_lesqlite(byte, expected):
+def test_decode_lesqlite2(byte, expected):
     buffer = BytesIO(byte)
     assert LeSQLite2.decode(buffer) == expected
