@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src.VarInt import LESQLite
+from src.VarInt import LeSQLite
 
 PARAMS = [
     [b'\x00', 0],
@@ -20,10 +20,10 @@ PARAMS = [
 
 @pytest.mark.parametrize("expected,integer", PARAMS)
 def test_encode_lesqlite(expected, integer):
-    assert LESQLite.encode(integer) == expected
+    assert LeSQLite.encode(integer) == expected
 
 
 @pytest.mark.parametrize("byte, expected", PARAMS)
 def test_decode_lesqlite(byte, expected):
     buffer = BytesIO(byte)
-    assert LESQLite.decode(buffer) == expected
+    assert LeSQLite.decode(buffer) == expected

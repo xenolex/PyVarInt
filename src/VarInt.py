@@ -208,7 +208,7 @@ class SQLite4VLI(Base):
         return int.from_bytes(buffer.read(8), 'big')
 
 
-class LESQLite(Base):
+class LeSQLite(Base):
     """
     The SQLite variable-length integer encoding is biased towards integer distributions with more
     small numbers. It can encode the integers 0-240 in one byte.
@@ -227,12 +227,6 @@ class LESQLite(Base):
     @staticmethod
     def encode(value) -> bytes:
         """Encode a leSQLite variable-length integer."""
-
-        def _add_bytes(number: int, num_bytes: int) -> bytes:
-            b = b''
-            for i in range(num_bytes * 8 - 8, -8, -8):
-                b += to_bytes((number >> i) & 0xFF)
-            return b
 
         if value <= 184:
             return to_bytes(value)
@@ -266,7 +260,6 @@ class LESQLite(Base):
 
         return bytes(result)
 
-
     @staticmethod
     def decode(buffer: BinaryIO) -> int:
         """Decode a leSQLite variable-length integer from a buffer."""
@@ -276,6 +269,77 @@ class LESQLite(Base):
         if value <= 248:
             return 185 + 256 * (value - 185) + ord(buffer.read(1))
         return int.from_bytes(buffer.read(value - 249 + 2), 'little')
+
+
+class LeSQLite2(Base):
+    """
+    A second variation of the SQLite-inspired encoding has a smoother bump between
+    the 2-byte and 3-byte encodings. It divides the values of the first byte into 4 ranges:
+
+    The value of a 1-byte encoding.
+    The high 6 bits of a 2-byte encoding.
+    The high 3 bits of a 3-byte encoding.
+    The number of bytes in a 4-9 byte encoding.
+    The ranges are assigned like this:
+
+    B0	Values	Formula
+    0-177	177	B0
+    178-241	2^14	178 + ((B0-178) << 8) + B[1]
+    242-249	2^19	16562 + ((B0-242) << 16) + B[1..2]
+    250-255	2^24..2^64	B0 - 250 + 3 little-endian bytes.
+    This variant is a bit slower to decode than the first one because there are more cases.
+    """
+
+    @staticmethod
+    def encode(value) -> bytes:
+        """Encode a leSQLite2 variable-length integer."""
+
+        if value <= 177:
+            return to_bytes(value)
+        if value <= 16561:
+            adjusted = value - 178
+            return to_bytes(178 + (adjusted >> 8)) + to_bytes(adjusted & 0xFF)
+
+        if value <= 524287:
+            adjusted = value - 16562
+            return to_bytes(242 + (adjusted >> 16)) + to_bytes((adjusted >> 8) & 0xFF) + to_bytes(
+                adjusted & 0xFF)
+
+        if value <= 16777215:
+            length = 3  # 24 bits
+        elif value <= 4294967295:
+            length = 4  # 32 bits
+        elif value <= 1099511627775:
+            length = 5  # 40 bits
+        elif value <= 281474976710655:
+            length = 6  # 48 bits
+        elif value <= 72057594037927935:
+            length = 7  # 56 bits
+        else:
+            length = 8  # 64 bits
+
+        result = bytearray()
+        # First byte indicates length
+        result.append(250 + length - 3)
+
+        # Add value bytes in little-endian order
+        for i in range(length):
+            result.append(value & 0xFF)
+            value >>= 8
+
+        return bytes(result)
+
+    @staticmethod
+    def decode(buffer: BinaryIO) -> int:
+        """Decode a leSQLite2 variable-length integer from a buffer."""
+        value = ord(buffer.read(1))
+        if value <= 177:
+            return value
+        if value <= 241:
+            return 178 + ((value - 178) << 8) + ord(buffer.read(1))
+        if value <= 249:
+            return 16562 + ((value - 242) << 16) + (ord(buffer.read(1)) << 8) + ord(buffer.read(1))
+        return int.from_bytes(buffer.read(value - 250 + 3), 'little')
 
 
 class UnrealEngineSingedVLQ(Base):
