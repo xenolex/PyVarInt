@@ -1,3 +1,4 @@
+from math import ceil
 from typing import MutableSequence, BinaryIO
 
 from src.utils import to_bytes
@@ -26,8 +27,106 @@ class GroupVarintEncoding(Base):
 
 class PrefixVarint(Base):
     """
-    Prefix Varint
+    Brought up in WebAssembly/design#601, and probably invented independently many times,
+    this encoding is very similar to LEB128, but it moves all the tag bits to the LSBs
+    of the first byte:
+
+    xxxxxxx1  7 bits in 1 byte
+    xxxxxx10 14 bits in 2 bytes
+    xxxxx100 21 bits in 3 bytes
+    xxxx1000 28 bits in 4 bytes
+    xxx10000 35 bits in 5 bytes
+    xx100000 42 bits in 6 bytes
+    x1000000 49 bits in 7 bytes
+    10000000 56 bits in 8 bytes
+    00000000 64 bits in 9 bytes
+
+    This has advantages on modern CPUs with fast unaligned loads and count
+    trailing zeros instructions. The compression ratio is the same as for LEB128,
+    except for those 64-bit numbers that require 10 bytes to encode in LEB128.
+
+    Like UTF-8, the length of a PrefixVarint-encoded number can be determined from the first byte.
+    (UTF-8 is not considered here since it only encodes 6 bits per byte due to
+    design constraints that are not relevant to WebAssembly.)
+
     """
+
+    @staticmethod
+    def encode(value: int) -> bytes:
+        """
+        Encode an integer using PrefixVarint encoding with LSB tags.
+        """
+        # Determine number of required bytes based on value's bit length
+        bit_length = value.bit_length()
+        # Calculate required bytes for other cases
+        bytes_needed = ceil(bit_length / 7)
+        prefix = 1 if bit_length <= 7 else 2 ** (bytes_needed - 1)
+
+        # Special case for 64-bit values
+        if bit_length > 56:
+            # Use 9-byte encoding with 00000000 prefix
+            result = bytearray([0])  # First byte is all zeros
+            # Add remaining 8 bytes in little-endian order
+            for _ in range(8):
+                result.append(value & 0xFF)
+                value >>= 8
+            return bytes(result)
+
+        result = bytearray()
+
+        # First byte contains both data and prefix
+        available_bits = 8 - prefix.bit_length()
+        first_byte_mask = (1 << available_bits) - 1
+        first_byte = ((value & first_byte_mask) << (8 - available_bits)) | prefix
+        result.append(first_byte)
+        value >>= available_bits
+
+        # Add remaining bytes in little-endian order
+        for _ in range(bytes_needed - 1):
+            result.append(value & 0xFF)
+            value >>= 8
+
+        return bytes(result)
+
+    @staticmethod
+    def decode(buffer: BinaryIO) -> int:
+        """
+            Decode a PrefixVarint encoded integer.
+            """
+
+        def _count_trailing_zeros(n: int) -> int:
+            """Count the number of trailing zero bits in a byte."""
+            if n == 0:
+                return 8
+            count = 0
+            while n & 1 == 0:
+                count += 1
+                n >>= 1
+            return count
+
+        first_byte = ord(buffer.read(1))
+        if first_byte == 0:
+
+            value = 0
+            for i in range(8):
+                value |= ord(buffer.read(1)) << (8 * i)
+            return value
+
+        # Count trailing zeros to determine encoding length
+        trailing_zeros = _count_trailing_zeros(n=first_byte)
+        total_bytes = trailing_zeros + 1
+
+        # Calculate number of data bits in first byte
+        data_bits = 7 - trailing_zeros
+
+        # Extract value from first byte
+        value = (first_byte >> (8 - data_bits)) if data_bits > 0 else 0
+
+        # Add remaining bytes in little-endian order
+        for i in range(1, total_bytes):
+            value |= ord(buffer.read(1)) << (data_bits + (8 * (i - 1)))
+
+        return value
 
 
 class UnsignedLEB128(Base):
