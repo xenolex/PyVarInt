@@ -34,6 +34,7 @@ class UnsignedLEB128(Base):
     """
     Unsigned Little Endian Base 128 (LEB128)
     """
+
     @staticmethod
     def encode(value) -> bytes:
         """Encode a Unsigned Little Endian Base 128 (LEB128) from a buffer."""
@@ -59,7 +60,7 @@ class UnsignedLEB128(Base):
         """Decode a Unsigned Little Endian Base 128 (LEB128) from a buffer."""
         shift = 0
         result = 0
-        
+
         while True:
             i = ord(buffer.read(1))
             result |= (i & 0x7f) << shift
@@ -75,8 +76,9 @@ class SignedLEB128(Base):
     Signed Little Endian Base 128 (LEB128)
     https://en.wikipedia.org/wiki/LEB128
     """
+
     @staticmethod
-    def encode(value:int) -> bytes:
+    def encode(value: int) -> bytes:
         """Encode a signed integer using LEB128 encoding."""
         result = bytearray()
         while True:
@@ -92,7 +94,6 @@ class SignedLEB128(Base):
             else:
                 result.append(byte | 0x80)
         return bytes(result)
-
 
     @staticmethod
     def decode(buffer: BinaryIO) -> int:
@@ -205,6 +206,76 @@ class SQLite4VLI(Base):
         if value == 254:
             return int.from_bytes(buffer.read(7), 'big')
         return int.from_bytes(buffer.read(8), 'big')
+
+
+class LESQLite(Base):
+    """
+    The SQLite variable-length integer encoding is biased towards integer distributions with more
+    small numbers. It can encode the integers 0-240 in one byte.
+
+    The encoding implemented here is modified for better performance with WebAssembly (little-endian SQLite).
+    The first byte, B0 determines the encoding:
+
+    0-184   1 byte    value = B0
+    185-248 2 bytes   value = 185 + 256 * (B0 - 185) + B1
+    249-255 3-9 bytes value = (B0 - 249 + 2) little-endian bytes following B0.
+    This encoding packs more than 7 bits into 1 byte and a bit more than 14 bits into 2 bytes.
+    This has a cost in encoding size since the 3-byte encoding only holds 16 bits.
+    The 3+ byte encoded numbers are very fast to decode with an unaligned load instruction.
+    """
+
+    @staticmethod
+    def encode(value) -> bytes:
+        """Encode a leSQLite variable-length integer."""
+
+        def _add_bytes(number: int, num_bytes: int) -> bytes:
+            b = b''
+            for i in range(num_bytes * 8 - 8, -8, -8):
+                b += to_bytes((number >> i) & 0xFF)
+            return b
+
+        if value <= 184:
+            return to_bytes(value)
+        if value <= 16559:
+            adjusted = value - 185
+            return to_bytes(185 + adjusted // 256) + to_bytes(adjusted % 256)
+
+        if value <= 65535:
+            length = 2  # 16 bits
+        elif value <= 16777215:
+            length = 3  # 24 bits
+        elif value <= 4294967295:
+            length = 4  # 32 bits
+        elif value <= 1099511627775:
+            length = 5  # 40 bits
+        elif value <= 281474976710655:
+            length = 6  # 48 bits
+        elif value <= 72057594037927935:
+            length = 7  # 56 bits
+        else:
+            length = 8  # 64 bits
+
+        result = bytearray()
+        # First byte indicates the number of following bytes
+        result.append(249 + length - 2)
+
+        # Add the value bytes in little-endian order
+        for i in range(length):
+            result.append(value & 0xFF)
+            value >>= 8
+
+        return bytes(result)
+
+
+    @staticmethod
+    def decode(buffer: BinaryIO) -> int:
+        """Decode a leSQLite variable-length integer from a buffer."""
+        value = ord(buffer.read(1))
+        if value <= 184:
+            return value
+        if value <= 248:
+            return 185 + 256 * (value - 185) + ord(buffer.read(1))
+        return int.from_bytes(buffer.read(value - 249 + 2), 'little')
 
 
 class UnrealEngineSingedVLQ(Base):
