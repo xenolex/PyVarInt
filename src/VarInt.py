@@ -3,8 +3,6 @@ various variable-length integer encoding schemes."""
 from math import ceil
 from typing import MutableSequence, BinaryIO
 
-from src.utils import to_bytes
-
 
 class Base:
     """
@@ -12,12 +10,12 @@ class Base:
     """
 
     @staticmethod
-    def encode(value) -> bytes:
+    def encode(value: int) -> bytes:
         """base function for encoding"""
         raise NotImplementedError
 
     @staticmethod
-    def decode(buffer) -> int:
+    def decode(buffer: BinaryIO) -> int:
         """base function for decoding"""
         raise NotImplementedError
 
@@ -340,36 +338,36 @@ class LeSQLite(Base):
     @staticmethod
     def encode(value) -> bytes:
         """Encode a leSQLite variable-length integer."""
-
-        if value <= 184:
-            return to_bytes(value)
-        if value <= 16559:
-            adjusted = value - 185
-            return to_bytes(185 + adjusted // 256) + to_bytes(adjusted % 256)
-
-        if value <= 65535:
-            length = 2  # 16 bits
-        elif value <= 16777215:
-            length = 3  # 24 bits
-        elif value <= 4294967295:
-            length = 4  # 32 bits
-        elif value <= 1099511627775:
-            length = 5  # 40 bits
-        elif value <= 281474976710655:
-            length = 6  # 48 bits
-        elif value <= 72057594037927935:
-            length = 7  # 56 bits
-        else:
-            length = 8  # 64 bits
-
         result = bytearray()
-        # First byte indicates the number of following bytes
-        result.append(249 + length - 2)
+        if value <= 184:
+            result.append(value)
+        elif value <= 16559:
+            adjusted = value - 185
+            result.append(185 + adjusted // 256)
+            result.append(adjusted % 256)
+        else:
+            if value <= 65535:
+                length = 2  # 16 bits
+            elif value <= 16777215:
+                length = 3  # 24 bits
+            elif value <= 4294967295:
+                length = 4  # 32 bits
+            elif value <= 1099511627775:
+                length = 5  # 40 bits
+            elif value <= 281474976710655:
+                length = 6  # 48 bits
+            elif value <= 72057594037927935:
+                length = 7  # 56 bits
+            else:
+                length = 8  # 64 bits
 
-        # Add the value bytes in little-endian order
-        for _ in range(length):
-            result.append(value & 0xFF)
-            value >>= 8
+            # First byte indicates the number of following bytes
+            result.append(249 + length - 2)
+
+            # Add the value bytes in little-endian order
+            for _ in range(length):
+                result.append(value & 0xFF)
+                value >>= 8
 
         return bytes(result)
 
@@ -407,41 +405,40 @@ class LeSQLite2(Base):
     def encode(value) -> bytes:
         """Encode a leSQLite2 variable-length integer."""
 
-        if value <= 177:
-            return to_bytes(value)
-        if value <= 16561:
-            adjusted = value - 178
-            return to_bytes(178 + (adjusted >> 8)) + to_bytes(adjusted & 0xFF)
-
-        if value <= 524287:
-            adjusted = value - 16562
-            return (
-                    to_bytes(242 + (adjusted >> 16))
-                    + to_bytes((adjusted >> 8) & 0xFF)
-                    + to_bytes(adjusted & 0xFF)
-            )
-
-        if value <= 16777215:
-            length = 3  # 24 bits
-        elif value <= 4294967295:
-            length = 4  # 32 bits
-        elif value <= 1099511627775:
-            length = 5  # 40 bits
-        elif value <= 281474976710655:
-            length = 6  # 48 bits
-        elif value <= 72057594037927935:
-            length = 7  # 56 bits
-        else:
-            length = 8  # 64 bits
-
         result = bytearray()
-        # First byte indicates length
-        result.append(250 + length - 3)
+        if value <= 177:
+            result.append(value)
+        elif value <= 16561:
+            adjusted = value - 178
+            result.append(178 + (adjusted >> 8))
+            result.append(adjusted & 0xFF)
+        else:
+            if value <= 524287:
+                adjusted = value - 16562
+                result.append(242 + (adjusted >> 16))
+                result.append((adjusted >> 8) & 0xFF)
+                result.append(adjusted & 0xFF)
+            else:
+                if value <= 16777215:
+                    length = 3  # 24 bits
+                elif value <= 4294967295:
+                    length = 4  # 32 bits
+                elif value <= 1099511627775:
+                    length = 5  # 40 bits
+                elif value <= 281474976710655:
+                    length = 6  # 48 bits
+                elif value <= 72057594037927935:
+                    length = 7  # 56 bits
+                else:
+                    length = 8  # 64 bits
 
-        # Add value bytes in little-endian order
-        for _ in range(length):
-            result.append(value & 0xFF)
-            value >>= 8
+                # First byte indicates length
+                result.append(250 + length - 3)
+
+                # Add value bytes in little-endian order
+                for _ in range(length):
+                    result.append(value & 0xFF)
+                    value >>= 8
 
         return bytes(result)
 
@@ -474,31 +471,31 @@ class UnrealEngineSingedVLQ(Base):
     @staticmethod
     def encode(value: int) -> bytes:
         """Encode an Unreal Engine signed variable-length quantity."""
-        byte_sting = b""
+        bytearr = bytearray()
         abs_value = abs(value)
         byte0 = (0 if value >= 0 else 0x80) + (
             abs_value if abs_value < 0x40 else ((abs_value & 0x3F) + 0x40)
         )
-        byte_sting += to_bytes(byte0)
+        bytearr.append(byte0)
 
         if byte0 & 0x40:
             abs_value >>= 6
             byte1 = abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80)
-            byte_sting += to_bytes(byte1)
+            bytearr.append(byte1)
             if byte1 & 0x80:
                 abs_value >>= 7
                 byte2 = abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80)
-                byte_sting += to_bytes(byte2)
+                bytearr.append(byte2)
                 if byte2 & 0x80:
                     abs_value >>= 7
                     byte3 = abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80)
-                    byte_sting += to_bytes(byte3)
+                    bytearr.append(byte3)
                     if byte3 & 0x80:
                         abs_value >>= 7
                         byte4 = abs_value
-                        byte_sting += to_bytes(byte4)
+                        bytearr.append(byte4)
 
-        return byte_sting
+        return bytes(bytearr)
 
     @staticmethod
     def decode(buffer: BinaryIO) -> int:
