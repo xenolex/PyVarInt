@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src.VarInt import PrefixVarint
+from src.algorithms import PrefixVarint
 
 PARAMS = [
     [b'\x01', 0],

@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src.VarInt import LeSQLite2
+from src.algorithms import LeSQLite2
 
 PARAMS = [
     [b'\x00', 0],

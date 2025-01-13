@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src.VarInt import UnrealEngineSingedVLQ
+from src.algorithms import UnrealEngineSingedVLQ
 
 PARAMS = [
     [b'\xff\xff\xff\xff\xff', -34359738367],
