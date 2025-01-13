@@ -3,7 +3,7 @@ import os
 import setuptools
 from mypyc.build import mypycify
 
-SRC_DIR = "./src"
+BUILD_DIR = "./PyVarInt"
 
 
 def read(fname):
@@ -12,7 +12,8 @@ def read(fname):
 
 
 setuptools.setup(
-    name="PyVarint",
+    name="PyVarInt",
+    packages=["PyVarInt"],
     version="0.0.1",
     description="Varint encoding and decoding algorithms writen on Python",
     author="Alexey Belkov",
@@ -21,6 +22,8 @@ setuptools.setup(
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
     license="License :: OSI Approved :: Apache Software License 2.0",
-    ext_modules=mypycify([os.path.join(SRC_DIR, "VarInt.py"),
-                          os.path.join(SRC_DIR, "utils.py")], opt_level="3", debug_level="1")
+    ext_modules=mypycify([
+        os.path.join(BUILD_DIR, "VarInt.py"),
+    ],
+        opt_level="3", debug_level="1")
 )
