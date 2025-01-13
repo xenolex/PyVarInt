@@ -1,3 +1,5 @@
+"""This module is collection of algorithms for encoding and decoding integers using
+various variable-length integer encoding schemes."""
 from math import ceil
 from typing import MutableSequence, BinaryIO
 
@@ -5,24 +7,19 @@ from src.utils import to_bytes
 
 
 class Base:
+    """
+    Base class for encoding and decoding integers.
+    """
+
     @staticmethod
     def encode(value) -> bytes:
+        """base function for encoding"""
         raise NotImplementedError
 
     @staticmethod
     def decode(buffer) -> int:
+        """base function for decoding"""
         raise NotImplementedError
-
-
-class GroupVarintEncoding(Base):
-    """
-    Group Varint Encoding (GVE).
-    """
-
-    @staticmethod
-    def decode(buffer: BinaryIO) -> int:
-        """Group Varint Encoding"""
-        pass
 
 
 class PrefixVarint(Base):
@@ -91,29 +88,26 @@ class PrefixVarint(Base):
     @staticmethod
     def decode(buffer: BinaryIO) -> int:
         """
-            Decode a PrefixVarint encoded integer.
-            """
+        Decode a PrefixVarint encoded integer.
+        """
 
-        def _count_trailing_zeros(n: int) -> int:
+        def _count_trailing_zeros(numb: int) -> int:
             """Count the number of trailing zero bits in a byte."""
-            if n == 0:
-                return 8
             count = 0
-            while n & 1 == 0:
+            while numb & 1 == 0:
                 count += 1
-                n >>= 1
+                numb >>= 1
             return count
 
         first_byte = ord(buffer.read(1))
         if first_byte == 0:
-
             value = 0
             for i in range(8):
                 value |= ord(buffer.read(1)) << (8 * i)
             return value
 
         # Count trailing zeros to determine encoding length
-        trailing_zeros = _count_trailing_zeros(n=first_byte)
+        trailing_zeros = _count_trailing_zeros(numb=first_byte)
         total_bytes = trailing_zeros + 1
 
         # Calculate number of data bits in first byte
@@ -162,9 +156,9 @@ class UnsignedLEB128(Base):
 
         while True:
             i = ord(buffer.read(1))
-            result |= (i & 0x7f) << shift
+            result |= (i & 0x7F) << shift
             shift += 7
-            if not (i & 0x80):
+            if not i & 0x80:
                 break
 
         return result
@@ -181,17 +175,18 @@ class SignedLEB128(Base):
         """Encode a signed integer using LEB128 encoding."""
         result = bytearray()
         while True:
-            byte = value & 0x7f
+            byte = value & 0x7F
             value >>= 7
             # Sign extension
             if value == 0 and byte & 0x40 == 0:
                 result.append(byte)
                 break
-            elif value == -1 and byte & 0x40 != 0:
+
+            if value == -1 and byte & 0x40 != 0:
                 result.append(byte)
                 break
-            else:
-                result.append(byte | 0x80)
+            result.append(byte | 0x80)
+
         return bytes(result)
 
     @staticmethod
@@ -204,7 +199,7 @@ class SignedLEB128(Base):
             item = ord(buffer.read(1))
             result |= (item & 0x7F) << shift
             # Check if this is the last byte
-            if not (item & 0x80):
+            if not item & 0x80:
                 # Sign extend if necessary
                 if shift < 64 and (item & 0x40):
                     result |= ~0 << (shift + 7)
@@ -224,13 +219,13 @@ class VariableLengthQuantity(Base):
     def encode(value) -> bytes:
         """Encode a variable-length quantity."""
         tmp_arr = []
-        buffer = value & 0x7f
+        buffer = value & 0x7F
         tmp_arr.append(buffer)
         while value := value >> 7:
-            buffer = (value & 0x7f) | 0x80
+            buffer = (value & 0x7F) | 0x80
             tmp_arr.append(buffer)
 
-        return b''.join(to_bytes(i) for i in tmp_arr[::-1])
+        return bytes(tmp_arr[::-1])
 
     @staticmethod
     def decode(buffer: BinaryIO) -> int:
@@ -239,8 +234,8 @@ class VariableLengthQuantity(Base):
         result = 0
         while True:
             i = ord(buffer.read(1))
-            tmp_arr.append(i & 0x7f)
-            if not (i & 0x80):
+            tmp_arr.append(i & 0x7F)
+            if not i & 0x80:
                 break
         for shift, item in enumerate(tmp_arr[::-1]):
             tmp_arr[shift] = item << shift * 7
@@ -260,51 +255,67 @@ class SQLite4VLI(Base):
     def encode(value) -> bytes:
         """Encode a SQLite4 variable-length integer."""
 
-        def _add_bytes(number: int, num_bytes: int) -> bytes:
-            b = b''
+        def _add_bytes(number: int, num_bytes: int) -> bytearray:
+            bytearr = bytearray()
             for i in range(num_bytes * 8 - 8, -8, -8):
-                b += to_bytes((number >> i) & 0xFF)
-            return b
+                bytearr.append((number >> i) & 0xFF)
+            return bytearr
+
+        result = bytearray()
 
         if value <= 240:
-            return to_bytes(value)
-        if value <= 2287:
-            return to_bytes(241 + (value - 240) // 256) + to_bytes((value - 240) % 256)
-        if value <= 67823:
-            return to_bytes(249) + to_bytes((value - 2288) // 256) + to_bytes((value - 2288) % 256)
-        if value <= 16777215:
-            return to_bytes(250) + _add_bytes(value, num_bytes=3)
-        if value <= 4294967295:
-            return to_bytes(251) + _add_bytes(value, num_bytes=4)
-        if value <= 1099511627775:
-            return to_bytes(252) + _add_bytes(value, num_bytes=5)
-        if value <= 281474976710655:
-            return to_bytes(253) + _add_bytes(value, num_bytes=6)
-        if value <= 72057594037927935:
-            return to_bytes(254) + _add_bytes(value, num_bytes=7)
-        return to_bytes(255) + _add_bytes(value, num_bytes=8)
+            result.append(value)
+        elif value <= 2287:
+            result.append(241 + (value - 240) // 256)
+            result.append((value - 240) % 256)
+        elif value <= 67823:
+            result.append(249)
+            result.append((value - 2288) // 256)
+            result.append((value - 2288) % 256)
+        elif value <= 16777215:
+            result.append(250)
+            result += _add_bytes(value, num_bytes=3)
+        elif value <= 4294967295:
+            result.append(251)
+            result += _add_bytes(value, num_bytes=4)
+        elif value <= 1099511627775:
+            result.append(252)
+            result += _add_bytes(value, num_bytes=5)
+        elif value <= 281474976710655:
+            result.append(253)
+            result += _add_bytes(value, num_bytes=6)
+        elif value <= 72057594037927935:
+            result.append(254)
+            result += _add_bytes(value, num_bytes=7)
+        else:
+            result.append(255)
+            result += _add_bytes(value, num_bytes=8)
+        return bytes(result)
 
     @staticmethod
     def decode(buffer: BinaryIO) -> int:
         """Decode a SQLite4 variable-length integer from a buffer."""
         value = ord(buffer.read(1))
+
         if value <= 240:
-            return value
-        if value <= 248:
-            return 240 + 256 * (value - 241) + ord(buffer.read(1))
-        if value == 249:
-            return 2288 + 256 * ord(buffer.read(1)) + ord(buffer.read(1))
-        if value == 250:
-            return int.from_bytes(buffer.read(3), 'big')
-        if value == 251:
-            return int.from_bytes(buffer.read(4), 'big')
-        if value == 252:
-            return int.from_bytes(buffer.read(5), 'big')
-        if value == 253:
-            return int.from_bytes(buffer.read(6), 'big')
-        if value == 254:
-            return int.from_bytes(buffer.read(7), 'big')
-        return int.from_bytes(buffer.read(8), 'big')
+            result = value
+        elif value <= 248:
+            result = 240 + 256 * (value - 241) + ord(buffer.read(1))
+        elif value == 249:
+            result = 2288 + 256 * ord(buffer.read(1)) + ord(buffer.read(1))
+        elif value == 250:
+            result = int.from_bytes(buffer.read(3), "big")
+        elif value == 251:
+            result = int.from_bytes(buffer.read(4), "big")
+        elif value == 252:
+            result = int.from_bytes(buffer.read(5), "big")
+        elif value == 253:
+            result = int.from_bytes(buffer.read(6), "big")
+        elif value == 254:
+            result = int.from_bytes(buffer.read(7), "big")
+        else:
+            result = int.from_bytes(buffer.read(8), "big")
+        return result
 
 
 class LeSQLite(Base):
@@ -312,12 +323,15 @@ class LeSQLite(Base):
     The SQLite variable-length integer encoding is biased towards integer distributions with more
     small numbers. It can encode the integers 0-240 in one byte.
 
-    The encoding implemented here is modified for better performance with WebAssembly (little-endian SQLite).
+    The encoding implemented here is modified for better performance with
+    WebAssembly (little-endian SQLite).
+
     The first byte, B0 determines the encoding:
 
-    0-184   1 byte    value = B0
-    185-248 2 bytes   value = 185 + 256 * (B0 - 185) + B1
-    249-255 3-9 bytes value = (B0 - 249 + 2) little-endian bytes following B0.
+    0-184       1 byte      value = B0
+    185-248     2 bytes     value = 185 + 256 * (B0 - 185) + B1
+    249-255     3-9 bytes   value = (B0 - 249 + 2) little-endian bytes following B0.
+
     This encoding packs more than 7 bits into 1 byte and a bit more than 14 bits into 2 bytes.
     This has a cost in encoding size since the 3-byte encoding only holds 16 bits.
     The 3+ byte encoded numbers are very fast to decode with an unaligned load instruction.
@@ -353,7 +367,7 @@ class LeSQLite(Base):
         result.append(249 + length - 2)
 
         # Add the value bytes in little-endian order
-        for i in range(length):
+        for _ in range(length):
             result.append(value & 0xFF)
             value >>= 8
 
@@ -367,7 +381,7 @@ class LeSQLite(Base):
             return value
         if value <= 248:
             return 185 + 256 * (value - 185) + ord(buffer.read(1))
-        return int.from_bytes(buffer.read(value - 249 + 2), 'little')
+        return int.from_bytes(buffer.read(value - 249 + 2), "little")
 
 
 class LeSQLite2(Base):
@@ -401,8 +415,11 @@ class LeSQLite2(Base):
 
         if value <= 524287:
             adjusted = value - 16562
-            return to_bytes(242 + (adjusted >> 16)) + to_bytes((adjusted >> 8) & 0xFF) + to_bytes(
-                adjusted & 0xFF)
+            return (
+                    to_bytes(242 + (adjusted >> 16))
+                    + to_bytes((adjusted >> 8) & 0xFF)
+                    + to_bytes(adjusted & 0xFF)
+            )
 
         if value <= 16777215:
             length = 3  # 24 bits
@@ -422,7 +439,7 @@ class LeSQLite2(Base):
         result.append(250 + length - 3)
 
         # Add value bytes in little-endian order
-        for i in range(length):
+        for _ in range(length):
             result.append(value & 0xFF)
             value >>= 8
 
@@ -437,8 +454,13 @@ class LeSQLite2(Base):
         if value <= 241:
             return 178 + ((value - 178) << 8) + ord(buffer.read(1))
         if value <= 249:
-            return 16562 + ((value - 242) << 16) + (ord(buffer.read(1)) << 8) + ord(buffer.read(1))
-        return int.from_bytes(buffer.read(value - 250 + 3), 'little')
+            return (
+                    16562
+                    + ((value - 242) << 16)
+                    + (ord(buffer.read(1)) << 8)
+                    + ord(buffer.read(1))
+            )
+        return int.from_bytes(buffer.read(value - 250 + 3), "little")
 
 
 class UnrealEngineSingedVLQ(Base):
@@ -452,47 +474,48 @@ class UnrealEngineSingedVLQ(Base):
     @staticmethod
     def encode(value: int) -> bytes:
         """Encode an Unreal Engine signed variable-length quantity."""
-        b = b''
+        byte_sting = b""
         abs_value = abs(value)
-        b0 = ((0 if value >= 0 else 0x80) +
-              (abs_value if abs_value < 0x40 else ((abs_value & 0x3F) + 0x40)))
-        b += to_bytes(b0)
+        byte0 = (0 if value >= 0 else 0x80) + (
+            abs_value if abs_value < 0x40 else ((abs_value & 0x3F) + 0x40)
+        )
+        byte_sting += to_bytes(byte0)
 
-        if b0 & 0x40:
+        if byte0 & 0x40:
             abs_value >>= 6
-            b1 = (abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80))
-            b += to_bytes(b1)
-            if b1 & 0x80:
+            byte1 = abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80)
+            byte_sting += to_bytes(byte1)
+            if byte1 & 0x80:
                 abs_value >>= 7
-                b2 = (abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80))
-                b += to_bytes(b2)
-                if b2 & 0x80:
+                byte2 = abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80)
+                byte_sting += to_bytes(byte2)
+                if byte2 & 0x80:
                     abs_value >>= 7
-                    b3 = (abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80))
-                    b += to_bytes(b3)
-                    if b3 & 0x80:
+                    byte3 = abs_value if abs_value < 0x80 else ((abs_value & 0x7F) + 0x80)
+                    byte_sting += to_bytes(byte3)
+                    if byte3 & 0x80:
                         abs_value >>= 7
-                        b4 = abs_value
-                        b += to_bytes(b4)
+                        byte4 = abs_value
+                        byte_sting += to_bytes(byte4)
 
-        return b
+        return byte_sting
 
     @staticmethod
     def decode(buffer: BinaryIO) -> int:
         """Decode an Unreal Engine signed variable-length quantity from a buffer."""
         value = 0
-        b0 = ord(buffer.read(1))
-        if b0 & 0x40:
-            b1 = ord(buffer.read(1))
-            if b1 & 0x80:
-                b2 = ord(buffer.read(1))
-                if b2 & 0x80:
-                    b3 = ord(buffer.read(1))
-                    if b3 & 0x80:
+        byte0 = ord(buffer.read(1))
+        if byte0 & 0x40:
+            byte1 = ord(buffer.read(1))
+            if byte1 & 0x80:
+                byte2 = ord(buffer.read(1))
+                if byte2 & 0x80:
+                    byte3 = ord(buffer.read(1))
+                    if byte3 & 0x80:
                         value = ord(buffer.read(1))
-                    value = (value << 7) + (b3 & 0x7F)
-                value = (value << 7) + (b2 & 0x7F)
-            value = (value << 7) + (b1 & 0x7F)
-        value = (value << 6) + (b0 & 0x3F)
+                    value = (value << 7) + (byte3 & 0x7F)
+                value = (value << 7) + (byte2 & 0x7F)
+            value = (value << 7) + (byte1 & 0x7F)
+        value = (value << 6) + (byte0 & 0x3F)
 
-        return -value if b0 & 0x80 else value
+        return -value if byte0 & 0x80 else value
