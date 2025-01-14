@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src.algorithms import VariableLengthQuantity
+from PyVarInt.algorithms import VariableLengthQuantity
 
 PARAMS = [
     [b'\x00', 0],

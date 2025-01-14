@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src.algorithms import SignedLEB128
+from PyVarInt.algorithms import SignedLEB128
 
 PARAMS = [
     [b'\x80\x80\x80\x80\x80\x80\x80\x80\x7f', -72057594037927936],
