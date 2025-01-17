@@ -23,7 +23,8 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     license="License :: OSI Approved :: Apache Software License 2.0",
     ext_modules=mypycify([
-        os.path.join(BUILD_DIR, "VarInt.py"),
+        os.path.join(BUILD_DIR, "__init__.py"),
+        os.path.join(BUILD_DIR, "algorithms.py"),
     ],
         opt_level="3", debug_level="1")
 )
