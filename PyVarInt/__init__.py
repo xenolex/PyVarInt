@@ -1,4 +1,4 @@
-from src.algorithms import (PrefixVarint,
+from PyVarInt.algorithms import (PrefixVarint,
                             UnsignedLEB128,
                             SignedLEB128,
                             VariableLengthQuantity,

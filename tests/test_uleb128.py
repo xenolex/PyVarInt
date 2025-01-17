@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src.algorithms import UnsignedLEB128
+from PyVarInt.algorithms import UnsignedLEB128
 
 PARAMS = [
     [b'\x00', 0],

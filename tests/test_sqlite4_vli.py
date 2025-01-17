@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from src.algorithms import SQLite4VLI
+from PyVarInt.algorithms import SQLite4VLI
 
 PARAMS = [
     [b'\x00', 0],
