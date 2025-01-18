@@ -1,5 +1,6 @@
 """This module is collection of algorithms for encoding and decoding integers using
 various variable-length integer encoding schemes."""
+from io import BytesIO
 from math import ceil
 from typing import MutableSequence, BinaryIO
 
@@ -8,6 +9,11 @@ class Base:
     """
     Base class for encoding and decoding integers.
     """
+    @staticmethod
+    def convert_to_binnary_io(item: BinaryIO | bytes)-> BinaryIO:
+        if isinstance(item, bytes):
+            return BytesIO(item)
+        return item
 
     @staticmethod
     def encode(value: int) -> bytes:
@@ -15,14 +21,14 @@ class Base:
         raise NotImplementedError
 
     @staticmethod
-    def decode(buffer: BinaryIO) -> int:
+    def decode(buffer: BinaryIO | bytes) -> int:
         """base function for decoding"""
         raise NotImplementedError
 
 
 class PrefixVarint(Base):
     """
-    Brought up in WebAssembly/design#601, and probably invented independently many times,
+    PrefixVarint - brought up in WebAssembly/design#601, and probably invented independently many times,
     this encoding is very similar to LEB128, but it moves all the tag bits to the LSBs
     of the first byte:
 
@@ -49,7 +55,7 @@ class PrefixVarint(Base):
     @staticmethod
     def encode(value: int) -> bytes:
         """
-        Encode an integer using PrefixVarint encoding with LSB tags.
+        Encode an integer using PrefixVarint encoding.
         """
         # Determine number of required bytes based on value's bit length
         bit_length = value.bit_length()
@@ -84,10 +90,11 @@ class PrefixVarint(Base):
         return bytes(result)
 
     @staticmethod
-    def decode(buffer: BinaryIO) -> int:
+    def decode(buffer: BinaryIO | bytes) -> int:
         """
         Decode a PrefixVarint encoded integer.
         """
+        buffer = Base.convert_to_binnary_io(buffer)
 
         def _count_trailing_zeros(numb: int) -> int:
             """Count the number of trailing zero bits in a byte."""
@@ -128,7 +135,7 @@ class UnsignedLEB128(Base):
 
     @staticmethod
     def encode(value) -> bytes:
-        """Encode a Unsigned Little Endian Base 128 (LEB128) from a buffer."""
+        """Encode a Unsigned Little Endian Base 128 (LEB128)."""
         result = bytearray()
         while True:
             # Extract the lowest 7 bits
@@ -147,8 +154,11 @@ class UnsignedLEB128(Base):
         return bytes(result)
 
     @staticmethod
-    def decode(buffer: BinaryIO) -> int:
-        """Decode a Unsigned Little Endian Base 128 (LEB128) from a buffer."""
+    def decode(buffer: BinaryIO | bytes) -> int:
+        """Decode a Unsigned Little Endian Base 128 (LEB128)."""
+
+        buffer = Base.convert_to_binnary_io(buffer)
+
         shift = 0
         result = 0
 
@@ -188,8 +198,10 @@ class SignedLEB128(Base):
         return bytes(result)
 
     @staticmethod
-    def decode(buffer: BinaryIO) -> int:
-        """Decode a Signed Little Endian Base 128 (LEB128) from a buffer."""
+    def decode(buffer: BinaryIO | bytes) -> int:
+        """Decode a Signed Little Endian Base 128 (LEB128)."""
+        buffer = Base.convert_to_binnary_io(buffer)
+
         result = 0
         shift = 0
 
@@ -226,9 +238,11 @@ class VariableLengthQuantity(Base):
         return bytes(tmp_arr[::-1])
 
     @staticmethod
-    def decode(buffer: BinaryIO) -> int:
-        """Decode a variable-length quantity from a buffer."""
+    def decode(buffer: BinaryIO | bytes) -> int:
+        """Decode a variable-length quantity."""
         tmp_arr: MutableSequence = []
+        buffer = Base.convert_to_binnary_io(buffer)
+
         result = 0
         while True:
             i = ord(buffer.read(1))
@@ -291,8 +305,10 @@ class SQLite4VLI(Base):
         return bytes(result)
 
     @staticmethod
-    def decode(buffer: BinaryIO) -> int:
-        """Decode a SQLite4 variable-length integer from a buffer."""
+    def decode(buffer: BinaryIO | bytes) -> int:
+        """Decode a SQLite4 variable-length integer."""
+        buffer = Base.convert_to_binnary_io(buffer)
+
         value = ord(buffer.read(1))
 
         if value <= 240:
@@ -372,15 +388,16 @@ class LeSQLite(Base):
         return bytes(result)
 
     @staticmethod
-    def decode(buffer: BinaryIO) -> int:
-        """Decode a leSQLite variable-length integer from a buffer."""
+    def decode(buffer: BinaryIO | bytes) -> int:
+        """Decode a leSQLite variable-length integer."""
+        buffer = Base.convert_to_binnary_io(buffer)
+
         value = ord(buffer.read(1))
         if value <= 184:
             return value
         if value <= 248:
             return 185 + 256 * (value - 185) + ord(buffer.read(1))
         return int.from_bytes(buffer.read(value - 249 + 2), "little")
-
 
 class LeSQLite2(Base):
     """
@@ -443,8 +460,10 @@ class LeSQLite2(Base):
         return bytes(result)
 
     @staticmethod
-    def decode(buffer: BinaryIO) -> int:
-        """Decode a leSQLite2 variable-length integer from a buffer."""
+    def decode(buffer: BinaryIO | bytes) -> int:
+        """Decode a leSQLite2 variable-length integer."""
+        buffer = Base.convert_to_binnary_io(buffer)
+
         value = ord(buffer.read(1))
         if value <= 177:
             return value
@@ -498,8 +517,10 @@ class UnrealEngineSingedVLQ(Base):
         return bytes(bytearr)
 
     @staticmethod
-    def decode(buffer: BinaryIO) -> int:
-        """Decode an Unreal Engine signed variable-length quantity from a buffer."""
+    def decode(buffer: BinaryIO | bytes) -> int:
+        """Decode an Unreal Engine signed variable-length quantity."""
+        buffer = Base.convert_to_binnary_io(buffer)
+
         value = 0
         byte0 = ord(buffer.read(1))
         if byte0 & 0x40:
