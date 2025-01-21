@@ -27,6 +27,7 @@ PARAMS = [
 def test_decode_vlq(byte, expected):
     buffer = BytesIO(byte)
     assert VariableLengthQuantity.decode(buffer) == expected
+    assert VariableLengthQuantity.decode(byte) == expected
 
 
 @pytest.mark.parametrize("expected,integer", PARAMS)

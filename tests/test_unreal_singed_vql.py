@@ -62,3 +62,4 @@ def test_encode_unreal_signed_vlq(expected, integer):
 def test_decode_unreal_signed_vlq(byte, expected):
     buffer = BytesIO(byte)
     assert UnrealEngineSingedVLQ.decode(buffer) == expected
+    assert UnrealEngineSingedVLQ.decode(byte) == expected

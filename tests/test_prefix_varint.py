@@ -28,3 +28,4 @@ def test_encode_prefix_varint(expected, integer):
 def test_decode_prefix_varint(byte, expected):
     buffer = BytesIO(byte)
     assert PrefixVarint.decode(buffer) == expected
+    assert PrefixVarint.decode(byte) == expected

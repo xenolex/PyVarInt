@@ -19,6 +19,7 @@ PARAMS = [
 def test_decode_uleb128(byte, expected):
     buffer = BytesIO(byte)
     assert UnsignedLEB128.decode(buffer) == expected
+    assert UnsignedLEB128.decode(byte) == expected
 
 
 @pytest.mark.parametrize("expected, integer", PARAMS)

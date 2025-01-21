@@ -43,3 +43,4 @@ def test_encode_sqlite4_vli(expected, integer):
 def test_decode_sqlite4_vli(byte, expected):
     buffer = BytesIO(byte)
     assert SQLite4VLI.decode(buffer) == expected
+    assert SQLite4VLI.decode(byte) == expected

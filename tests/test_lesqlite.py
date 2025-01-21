@@ -27,3 +27,4 @@ def test_encode_lesqlite(expected, integer):
 def test_decode_lesqlite(byte, expected):
     buffer = BytesIO(byte)
     assert LeSQLite.decode(buffer) == expected
+    assert LeSQLite.decode(byte) == expected

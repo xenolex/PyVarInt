@@ -27,6 +27,7 @@ PARAMS = [
 def test_decode_sleb128(byte, expected):
     buffer = BytesIO(byte)
     assert SignedLEB128.decode(buffer) == expected
+    assert SignedLEB128.decode(byte) == expected
 
 @pytest.mark.parametrize("expected,byte", PARAMS)
 def test_encode_sleb128(byte, expected):
