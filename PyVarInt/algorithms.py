@@ -9,8 +9,9 @@ class Base:
     """
     Base class for encoding and decoding integers.
     """
+
     @staticmethod
-    def convert_to_binnary_io(item: BinaryIO | bytes)-> BinaryIO:
+    def convert_to_binnary_io(item: BinaryIO | bytes) -> BinaryIO:
         if isinstance(item, bytes):
             return BytesIO(item)
         return item
@@ -134,7 +135,7 @@ class UnsignedLEB128(Base):
     """
 
     @staticmethod
-    def encode(value) -> bytes:
+    def encode(value: int) -> bytes:
         """Encode a Unsigned Little Endian Base 128 (LEB128)."""
         result = bytearray()
         while True:
@@ -226,7 +227,7 @@ class VariableLengthQuantity(Base):
     """
 
     @staticmethod
-    def encode(value) -> bytes:
+    def encode(value: int) -> bytes:
         """Encode a variable-length quantity."""
         tmp_arr = []
         buffer = value & 0x7F
@@ -264,7 +265,7 @@ class SQLite4VLI(Base):
     """
 
     @staticmethod
-    def encode(value) -> bytes:
+    def encode(value: int) -> bytes:
         """Encode a SQLite4 variable-length integer."""
 
         def _add_bytes(number: int, num_bytes: int) -> bytearray:
@@ -352,7 +353,7 @@ class LeSQLite(Base):
     """
 
     @staticmethod
-    def encode(value) -> bytes:
+    def encode(value: int) -> bytes:
         """Encode a leSQLite variable-length integer."""
         result = bytearray()
         if value <= 184:
@@ -399,6 +400,7 @@ class LeSQLite(Base):
             return 185 + 256 * (value - 185) + ord(buffer.read(1))
         return int.from_bytes(buffer.read(value - 249 + 2), "little")
 
+
 class LeSQLite2(Base):
     """
     A second variation of the SQLite-inspired encoding has a smoother bump between
@@ -419,7 +421,7 @@ class LeSQLite2(Base):
     """
 
     @staticmethod
-    def encode(value) -> bytes:
+    def encode(value: int) -> bytes:
         """Encode a leSQLite2 variable-length integer."""
 
         result = bytearray()
