@@ -3,7 +3,7 @@ import os
 import setuptools
 from mypyc.build import mypycify
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 BUILD_DIR = "./PyVarInt"
 
@@ -24,7 +24,7 @@ setuptools.setup(
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
     license="License :: OSI Approved :: Apache Software License 2.0",
-    ext_modules=mypycify([
+    ext_modules=mypycify(["--disallow-untyped-defs",
         os.path.join(BUILD_DIR, "__init__.py"),
         os.path.join(BUILD_DIR, "algorithms.py"),
     ],
